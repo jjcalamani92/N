@@ -1,80 +1,75 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateUserInput } from './dto/create-user.input';
-import { UpdateUserInput } from './dto/update-user.input';
-import { User } from './entities/user.entity';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { CreateUserInput, GetUserArgs, UpdateUserInput } from './dto';
+import { User, UserDocument } from './entities';
+import { UserRepository } from './user.repository';
 import * as bcrypt from 'bcrypt';
-import { ListInput } from 'src/common/dto';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectModel(User.name)
-    private readonly userModel: Model<User>,
-  ) {}
+  constructor(private readonly userRepository: UserRepository) {}
 
-  async create(input: CreateUserInput) {
+  async createUser(input: CreateUserInput) {
     await this.validateCreateUserData(input);
-    const user = new this.userModel({
+    const dataDocument = await this.userRepository.create({
       ...input,
       password: await bcrypt.hash(input.password, 10),
     });
-    return user.save();
+    return this.toModel(dataDocument);
   }
 
-  private async validateCreateUserData(input: CreateUserInput) {
-    const user = await this.userModel.findOne({ email: input.email });
-    if (user) {
-      throw new NotFoundException(
-        `user with email ${input.email} already exists`,
-      );
-    }
+  async validateCreateUserData(input: CreateUserInput) {
+    try {
+      await this.userRepository.findOne({ email: input.email });
+      throw new NotFoundException('Email already exists.');
+    } catch (err) {}
+  }
+
+  async getUser(getuserArgs: GetUserArgs) {
+    const dataDocument = await this.userRepository.findOne(getuserArgs);
+    return this.toModel(dataDocument);
   }
 
   async update(id: string, input: UpdateUserInput) {
-    const existingUser = await this.userModel
-      .findOneAndUpdate({ _id: id }, { $set: input }, { new: true })
-      .exec();
+    const dataDocument = await this.userRepository.findOneAndUpdate(id, input);
+    return this.toModel(dataDocument);
+  }
 
-    if (!existingUser) {
-      throw new NotFoundException(`User ${id} not found`);
+  async remove(id: string) {
+    const dataDocument = await this.userRepository.remove(id);
+    return this.toModel(dataDocument);
+  }
+
+  findAll() {
+    return this.userRepository.find({});
+  }
+
+  async validateUser(email: string, password: string) {
+    const userDocument = await this.userRepository.findOne({ email });
+    const passwordIsValid = await bcrypt.compare(
+      password,
+      userDocument.password,
+    );
+    if (!passwordIsValid) {
+      throw new UnauthorizedException('Credentials are not valid.');
     }
-    return existingUser;
+    return this.toModel(userDocument);
   }
 
-  async remove(id: string, input: UpdateUserInput) {
-    const existingUser = await this.userModel
-      .findByIdAndUpdate({ _id: id }, { status: false }, { new: true })
-      .exec();
-    if (!existingUser) {
-      throw new NotFoundException(`User ${id} not found`);
-    }
-    return existingUser;
+  private toModel(userDocument: UserDocument): User {
+    return {
+      _id: userDocument._id.toHexString(),
+      email: userDocument.email,
+      password: userDocument.password,
+      role: userDocument.role,
+      sites: userDocument.sites,
+      google: userDocument.google,
+      status: userDocument.status,
+    };
   }
-
-  findAll(paginationQuery: ListInput) {
-    const { limit, offset } = paginationQuery;
-    return this.userModel
-      .find({ status: true })
-      .skip(offset)
-      .limit(limit)
-      .exec();
-  }
-
-  async findOne(id: string) {
-    const user = await this.userModel.findOne({ _id: id, status: true }).exec();
-    if (!user) {
-      throw new NotFoundException(`User ${id} not found`);
-    }
-    return user;
-  }
-
-  async getAll(paginationQuery: ListInput) {
-    const count = await this.userModel.count({ status: true });
-    const users = await this.findAll(paginationQuery);
-    return { count, users };
-  }
-
-
 }

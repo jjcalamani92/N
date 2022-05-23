@@ -25,4 +25,7 @@ export class CreateUserInput {
   @IsNotEmpty()
   @IsString()
   role: string;
+  status: boolean;
+  google: boolean;
+  sites: string[]
 }

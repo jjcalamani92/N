@@ -1,19 +1,20 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Args, Mutation, Resolver, Query } from '@nestjs/graphql';
+import { CreateUserInput, UpdateUserInput, GetUserArgs } from './dto';
 import { UserService } from './user.service';
-import { ListUserResponse, User } from './entities/user.entity';
-import { CreateUserInput } from './dto/create-user.input';
-import { UpdateUserInput } from './dto/update-user.input';
-import { ListInput } from '../common/dto/list.input';
-import ConnectionArgs, { getPagingParameters } from 'src/common/relay/connection.args';
-import { connectionFromArraySlice } from 'graphql-relay';
+import { User } from './entities/user.model';
+import { UseGuards } from '@nestjs/common';
+import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
+import JwtAuthGuard from 'src/auth/guards/jwt-auth.guard';
 
 @Resolver(() => User)
 export class UserResolver {
   constructor(private readonly userService: UserService) {}
-
+  
+  // @UseGuards(JwtAuthGuard)
   @Mutation(() => User)
-  createUser(@Args('createUserInput') createUserInput: CreateUserInput) {
-    return this.userService.create(createUserInput);
+  // @UseGuards(GqlAuthGuard)
+  createUser(@Args('input') input: CreateUserInput) {
+    return this.userService.createUser(input);
   }
 
   @Mutation(() => User)
@@ -23,39 +24,19 @@ export class UserResolver {
 
   @Mutation(() => User)
   removeUser(@Args('input') input: UpdateUserInput) {
-    return this.userService.remove(input._id, input);
-  }
-
-  @Query(() => [User], { name: 'users' })
-  findAll(
-    @Args('listInput')
-    listInput: ListInput,
-  ) {
-    return this.userService.findAll(listInput);
+    return this.userService.remove(input._id);
   }
 
   @Query(() => User, { name: 'user' })
-  findOne(@Args('_id', { type: () => String }) id: string) {
-    return this.userService.findOne(id);
-  } 
-
-  @Query(() => ListUserResponse, {
-    name: 'listUserWithCursor',
-  })
-  async findAllUserWithCursor(
-    @Args('args') args: ConnectionArgs,
-  ): Promise<ListUserResponse> {
-    const { limit, offset } = getPagingParameters(args);
-    const { users, count } = await this.userService.getAll({
-      limit,
-      offset,
-    });
-    const page = connectionFromArraySlice(users, args, {
-      arrayLength: count,
-      sliceStart: offset || 0,
-    });
-
-    return { pageData: { count, limit, offset }, page };
+  async getUser(@Args() getUserArgs: GetUserArgs) {
+    return this.userService.getUser(getUserArgs);
   }
 
+  
+  @Query(() => [User], { name: 'users' })
+  // @UseGuards(JwtAuthGuard)
+  // @UseGuards(GqlAuthGuard)
+  async getUsers() {
+    return this.userService.findAll();
+  }
 }
