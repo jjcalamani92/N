@@ -17,6 +17,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const userAgent = request.get('user-agent') || '';
     const { ip, method, path: url } = request;
+    console.log('hola')
     const correlationKey = uuidv4();
     const userId = request.user?.userId;
 

@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import * as cookieParser from 'cookie-parser';
 import * as cors from 'cors';
 import { ExceptionFilter } from './common/filters/exeception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +17,7 @@ async function bootstrap() {
     }),
   );
   app.use(cookieParser());
+  // app.useGlobalInterceptors(new LoggingInterceptor())
   app.useGlobalPipes(new ValidationPipe());
 
   const configService = app.get(ConfigService);

@@ -1,9 +1,7 @@
 import {
-  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateUserInput, GetUserArgs, UpdateUserInput } from './dto';
 import { User, UserDocument } from './entities';
